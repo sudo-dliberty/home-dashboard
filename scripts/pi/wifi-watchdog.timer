@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Wi-Fi connectivity watchdog periodically
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=3min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

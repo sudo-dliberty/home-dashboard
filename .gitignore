@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.local
+*.tsbuildinfo
+
+# Built frontend served by backend
+backend/app/static/
+
+# Env / local config
+.env
+.env.local
+settings.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Worktrees for parallel subagent work
+.worktrees/
+
+# Local upstream-feed fixtures captured during dev
+backend/tests/fixtures/*.live.pb

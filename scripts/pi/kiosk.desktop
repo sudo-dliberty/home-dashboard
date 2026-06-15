@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Home Dashboard Kiosk
+Comment=Launch Chromium fullscreen on the dashboard
+Exec=/home/pi/home-dashboard/scripts/pi/kiosk-start.sh
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+Terminal=false

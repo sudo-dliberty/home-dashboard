@@ -1,0 +1,8 @@
+[Unit]
+Description=Periodic Wi-Fi connectivity check and reconnect
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+# Adjust path if you installed somewhere other than /home/pi
+ExecStart=/home/pi/home-dashboard/scripts/pi/wifi-autoconnect.sh 20

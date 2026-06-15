@@ -1,0 +1,18 @@
+[Unit]
+Description=Astoria Home Dashboard backend (FastAPI)
+After=network-online.target wifi-autoconnect.service
+Wants=network-online.target wifi-autoconnect.service
+
+[Service]
+Type=simple
+# Adjust User / WorkingDirectory if you installed somewhere other than /home/pi
+User=pi
+WorkingDirectory=/home/pi/home-dashboard/backend
+EnvironmentFile=-/home/pi/home-dashboard/.env
+ExecStart=/home/pi/home-dashboard/backend/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 --log-level info
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
