@@ -22,13 +22,24 @@ export function StaleBadge({
 
   const minutes = Math.floor(ageMs / 60_000);
   const label = isStaleFromServer
-    ? "upstream stale"
+    ? "Delayed data"
     : minutes < 1
-      ? "updating…"
-      : `stale ${minutes}m`;
+      ? "Updating…"
+      : `Updated ${minutes}m ago`;
 
   return (
-    <span className="ml-2 inline-block rounded bg-amber-700/70 px-2 py-0.5 text-xs font-medium text-amber-100">
+    <span
+      className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-semibold type-caption"
+      style={{
+        fontSize: "1.3vh",
+        color: "var(--system-orange)",
+        background: "rgba(255,159,10,0.16)",
+      }}
+    >
+      <span
+        className="inline-block h-[0.55em] w-[0.55em] rounded-full"
+        style={{ background: "var(--system-orange)" }}
+      />
       {label}
     </span>
   );

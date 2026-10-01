@@ -12,8 +12,7 @@ locally on `127.0.0.1`.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
-> *(Above: real production build rendered at 1920×1080. The colon between the
-> hour and minute is shown — in the live UI it blinks at 1 Hz.)*
+> *(Above: captured straight from the Raspberry Pi 3 B+ kiosk at 1920×1080.)*
 
 See [`PLAN.md`](./PLAN.md) for architecture and design rationale.
 
@@ -31,71 +30,83 @@ See [`PLAN.md`](./PLAN.md) for architecture and design rationale.
 └──────────────────────────────────┴──────────────────┘
 ```
 
-Each right-column panel has a subtle 1 px `zinc-700` border so it reads as a
-distinct frame against the black page.
+### Look and feel
+The UI follows Apple's design language (StandBy / Lock Screen / widgets):
+
+- **Ambient backdrop**: the current photo, heavily blurred, fills the whole
+  screen, so the dashboard takes on each photo's colors. It's drawn into a
+  tiny canvas and stretched — the browser's smooth upscaling does the blur —
+  because a full-screen CSS `filter: blur()` exceeds the Pi 3 GPU's maximum
+  render surface and silently renders nothing.
+- **Glass panels**: Clock, Weather and Trains are translucent "material"
+  cards (`backdrop-filter`) with a faint lit top edge and soft shadow.
+- **Typography**: the system font (SF Pro on a Mac); the Pi has no SF, so a
+  bundled **Inter Variable** stands in. Large numerals get negative tracking,
+  small labels slightly positive.
+- **Motion**: restrained — values that change (countdowns, temperature) slide
+  gently into place, photos cross-fade. Honors `prefers-reduced-motion`,
+  `prefers-reduced-transparency` (solid panels) and `prefers-contrast`.
 
 ### Trains panel
 Real-time arrivals for **any station and any lines** you pick in Settings.
 The two columns are labeled by the station's **real North/South direction
-labels** (from the bundled MTA Stations dataset) — e.g. "Astoria - Ditmars
-Blvd" / "Manhattan" for 36 Av — instead of hardcoded boroughs. Route bullets
-render in each line's color (default N/W use the official MTA Broadway yellow
-`#F6BC26`).
+labels** (from the bundled MTA Stations dataset) — e.g. "Astoria" /
+"Manhattan" for 36 Av. Each column lists its **next four trains in arrival
+order**: the line's colored route bullet plus a large countdown ("Now" in
+green when a train is due).
 
 - **Multi-feed aware**: if the selected lines span multiple MTA realtime feed
   groups (e.g. an N/Q/R/W + a 7), the backend fetches the union of feeds and
   merges arrivals into the two direction buckets.
 - **Polled every 30 s**; the backend caches each parsed feed for 15 s (per feed
   URL) so bursty clients don't re-hit MTA.
-- **MTA-style update flash**: a brief white wash plays across the panel each
-  time a fresh poll lands — same idea as the refresh effect on the countdown
-  clocks in actual stations. Driven by `data.fetched_at` advancing, so it
-  doesn't fire on first paint.
-- **Stale badge** in the header if the last successful fetch is older than
-  ~90 s (3× the poll interval), or if the backend itself flags the data as
-  stale (upstream MTA outage on any contributing feed).
+- **Stale badge** (an orange capsule) in the header if the last successful
+  fetch is older than ~90 s (3× the poll interval), or if the backend itself
+  flags the data as stale (upstream MTA outage on any contributing feed).
 - An empty direction list isn't treated as an error (e.g. `W` is weekdays-only
   Astoria-Ditmars ↔ Whitehall St, so it's empty on weekends / late nights).
 
 ### Weather panel
-Current conditions + the next 12 hourly periods for Astoria.
+Styled like Apple's Weather widget: the place name (the `label` setting, or
+"My Location"), a large thin temperature, the condition with an icon, and the
+high / low over the next 12 hours.
 
 - **Polled every 60 s.** NWS (`api.weather.gov`) is the primary provider;
   Open-Meteo (`api.open-meteo.com`) is the fallback. Both are key-less.
-- **Icons**: a large `lucide-react` weather icon (Sun, CloudSun, Cloud,
-  CloudRain, CloudSnow, CloudLightning, CloudFog, Moon, etc.) sits next to
-  the temperature. The hourly strip has a matching small icon between the
-  hour and temp. Icons are mapped from the backend's `icon` field (NWS
-  tokens like `broken-clouds-day` or Open-Meteo `wmo-<code>`), with a
-  text-match fallback on the condition string.
-- **"Coat? / Umbrella?" chips** light up when the next 12 hours dip below
-  55 °F (coat) or rise above 40 % precipitation probability (umbrella).
+- **Hourly strip**: the next 8 hours, starting at "Now", each with a small
+  `lucide-react` icon. Precipitation chance appears (in cyan) only when it's
+  20 % or more.
+- **Coat / umbrella guidance** is a single line that only names what you
+  need — "Bring an umbrella", "Wear a coat" — or "No coat or umbrella needed".
+  Thresholds: the next 12 hours dip below 55 °F (coat) or rise above 40 %
+  precipitation probability (umbrella).
 
 ### Clock panel
-Current NYC time (`America/New_York`), updating every second. The colon
-between the hour and minute **blinks at 1 Hz** like a classic digital clock,
-without re-flowing the surrounding `tabular-nums` digits.
+Lock Screen–style: the date above, large time below, in the configured
+timezone, updating every second. No AM/PM and no blinking colon — a calmer
+clock for an always-on display.
 
 ### Photos panel
-Random pick from a local directory (`PHOTO_DIR`), rotates every 60 s with a
-fade transition, contained without distortion (`object-fit: contain` on
-black). If `PHOTO_DIR` is unset or missing, a placeholder message appears
-instead of broken images.
+Random pick from a local directory (`PHOTO_DIR`), rotating every 60 s. Each
+photo floats with rounded corners and a shadow, scaled (up or down) to fit
+without distortion, and cross-fades into the next. If `PHOTO_DIR` is unset or
+missing, a placeholder message appears instead of broken images.
 
 ---
 
 ## Settings
 
-Move the mouse and a **gear** fades in at the top-right (it auto-hides after a
-few idle seconds so it stays out of the way on the kiosk). Click it to open the
-**Settings** screen, which configures:
+Move the mouse and a **gear** fades in at the bottom-left (it auto-hides after
+a few idle seconds so it stays out of the way on the kiosk). Click it to open
+the **Settings** screen — laid out like iOS Settings, with grouped lists and a
+toggle for the 24-hour clock — which configures:
 
 - **Time** — timezone (full IANA list) and 12/24-hour clock.
 - **Weather** — enter a **US ZIP code** and hit *Look up* to auto-fill the
   coordinates (key-less, via Zippopotam.us), or set latitude / longitude
   directly. Plus an optional display label and the NWS user-agent contact string.
 - **Photos** — the absolute path to your local image directory.
-- **Subway** — search **any NYC station** by name, pick it, then check **which
+- **Subway** — search **any NYC station** by name, pick it, then tap **which
   of its lines** to show.
 
 Settings persist to a gitignored **`settings.json`** at the repo root and apply

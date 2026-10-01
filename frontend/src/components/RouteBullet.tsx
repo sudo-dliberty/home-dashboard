@@ -47,7 +47,7 @@ export function RouteBullet({ route, size = "1em" }: { route: string; size?: str
   const color = DARK_TEXT.has(route) ? "#000" : "#fff";
   return (
     <span
-      className="inline-flex items-center justify-center rounded-full font-black"
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-bold"
       style={{
         width: size,
         height: size,
@@ -55,6 +55,8 @@ export function RouteBullet({ route, size = "1em" }: { route: string; size?: str
         lineHeight: 1,
         backgroundColor: bg,
         color,
+        letterSpacing: "-0.02em",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(0,0,0,0.25)",
       }}
       aria-label={`${route} train`}
     >

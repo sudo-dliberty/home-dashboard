@@ -2,9 +2,151 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Apple-style design foundation.
+ *
+ * The dashboard is an ambient display (think StandBy / Apple TV screensaver):
+ * the current photo, heavily blurred, is the backdrop, and every panel is a
+ * translucent "material" floating over it. Tokens live here so panels stay
+ * consistent and the accessibility media queries below can override them in
+ * one place.
+ */
+:root {
+  /* Materials — thicker for big surfaces, lighter for small controls. */
+  --material-thick: rgba(22, 22, 24, 0.58);
+  --material-regular: rgba(40, 40, 44, 0.5);
+  --material-thin: rgba(255, 255, 255, 0.1);
+  --material-blur: blur(40px) saturate(180%);
+  --material-edge: rgba(255, 255, 255, 0.12); /* light catching the top edge */
+
+  /* Label hierarchy (iOS dark-mode label colors). */
+  --label-primary: rgba(255, 255, 255, 1);
+  --label-secondary: rgba(235, 235, 245, 0.62);
+  --label-tertiary: rgba(235, 235, 245, 0.36);
+  --separator: rgba(255, 255, 255, 0.1);
+
+  /* System accents (dark-mode variants). */
+  --system-blue: #0a84ff;
+  --system-cyan: #64d2ff;
+  --system-green: #30d158;
+  --system-orange: #ff9f0a;
+  --system-red: #ff453a;
+  --system-yellow: #ffd60a;
+
+  --radius-panel: 28px;
+
+  /* Default UI curve: critically-damped-feeling ease-out. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @layer base {
   html {
-    @apply text-white bg-black;
+    @apply bg-black text-white;
     font-feature-settings: "tnum" 1, "lnum" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
   }
+}
+
+@layer components {
+  /* Large floating panel: heaviest material, deepest shadow. */
+  .material-panel {
+    position: relative;
+    background: var(--material-thick);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    border-radius: var(--radius-panel);
+    box-shadow:
+      inset 0 1px 0 0 var(--material-edge),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 24px 60px -20px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Small interactive chrome (gear, capsules): lighter material. */
+  .material-control {
+    background: var(--material-regular);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    box-shadow:
+      inset 0 1px 0 0 var(--material-edge),
+      0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Press feedback lives on pointer-down and is instant. */
+  .pressable {
+    transition:
+      transform 120ms var(--ease-out),
+      background-color 160ms var(--ease-out),
+      opacity 300ms var(--ease-out);
+  }
+  .pressable:active {
+    transform: scale(0.96);
+  }
+
+  /* Type scale: tracking tightens as size grows, leading tightens too. */
+  .type-display {
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+  .type-title {
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .type-headline {
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .type-caption {
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+  }
+  /* Small uppercase section labels, a la iOS grouped lists / widgets. */
+  .type-eyebrow {
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+}
+
+/* Translucency off → frostier, near-solid materials. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-thick: rgb(28, 28, 30);
+    --material-regular: rgb(44, 44, 46);
+    --material-blur: none;
+  }
+}
+
+/* Increased contrast → solid surfaces with a defined border. */
+@media (prefers-contrast: more) {
+  :root {
+    --material-thick: rgb(18, 18, 20);
+    --material-regular: rgb(36, 36, 38);
+    --material-edge: rgba(255, 255, 255, 0.5);
+    --label-secondary: rgba(235, 235, 245, 0.85);
+    --label-tertiary: rgba(235, 235, 245, 0.65);
+  }
+}
+
+/* Reduced motion → keep cross-fades, drop scale/slide. */
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active {
+    transform: none;
+  }
+  .motion-scale,
+  .animate-settle {
+    animation-name: fade !important;
+  }
+}
+
+/* Settings rows are right-aligned values; spinner arrows would misalign them. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }

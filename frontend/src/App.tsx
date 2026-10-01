@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Clock } from "./panels/Clock";
-import { Photos } from "./panels/Photos";
+import { Backdrop, Photos, useSlideshow } from "./panels/Photos";
 import { Trains } from "./panels/Trains";
 import { Weather } from "./panels/Weather";
 import { SettingsGear } from "./components/SettingsGear";
@@ -18,36 +18,43 @@ function useHashRoute(): string {
   return hash;
 }
 
-// Layout: photos take ~2/3 of the width on the left; right column is
-// stacked Clock / Weather / Trains. All units use vh/vw so the layout
-// adapts to whatever the actual Pi monitor reports (PLAN.md §1).
+// Layout: the current photo, blurred, fills the screen as an ambient
+// backdrop. The photo itself floats in the left ~2/3; the right column holds
+// translucent Clock, Weather and Trains panels. All units use vh/vw so the
+// layout adapts to whatever the actual Pi monitor reports (PLAN.md §1).
 function Dashboard() {
+  const show = useSlideshow();
   return (
-    <div
-      className="h-screen w-screen grid gap-2 p-2 bg-black text-white"
-      style={{
-        gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
-        gridTemplateRows: "auto 1fr auto",
-        gridTemplateAreas: `
-          "photos clock"
-          "photos weather"
-          "photos trains"
-        `,
-      }}
-    >
-      <div style={{ gridArea: "photos" }} className="rounded-2xl overflow-hidden bg-black">
-        <Photos />
+    <>
+      <Backdrop show={show} />
+      <div
+        className="relative z-10 grid h-screen w-screen text-white"
+        style={{
+          padding: "3vh",
+          gap: "2.4vh 3vh",
+          gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+          gridTemplateRows: "auto auto minmax(0, 1fr)",
+          gridTemplateAreas: `
+            "photos clock"
+            "photos weather"
+            "photos trains"
+          `,
+        }}
+      >
+        <div style={{ gridArea: "photos" }} className="min-h-0">
+          <Photos show={show} />
+        </div>
+        <div style={{ gridArea: "clock" }}>
+          <Clock />
+        </div>
+        <div style={{ gridArea: "weather" }}>
+          <Weather />
+        </div>
+        <div style={{ gridArea: "trains" }} className="min-h-0">
+          <Trains />
+        </div>
       </div>
-      <div style={{ gridArea: "clock" }} className="bg-zinc-950 rounded-2xl border border-zinc-700">
-        <Clock />
-      </div>
-      <div style={{ gridArea: "weather" }}>
-        <Weather />
-      </div>
-      <div style={{ gridArea: "trains" }}>
-        <Trains />
-      </div>
-    </div>
+    </>
   );
 }
 

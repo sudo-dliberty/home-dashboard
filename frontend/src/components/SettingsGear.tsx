@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 
 // Kiosk-friendly settings affordance: invisible until the user moves the
-// mouse, then fades in and auto-hides after ~3s of idle. Clicking routes to
-// the hash-based settings screen.
+// mouse, then materializes and auto-hides after ~3s of idle. Clicking routes
+// to the hash-based settings screen.
 const IDLE_MS = 3000;
 
 export function SettingsGear() {
@@ -30,11 +30,11 @@ export function SettingsGear() {
       onClick={() => {
         window.location.hash = "#/settings";
       }}
-      className={`fixed top-3 right-3 z-50 rounded-full bg-zinc-800/70 p-2 text-zinc-200 shadow-lg backdrop-blur transition-opacity duration-500 hover:bg-zinc-700 ${
-        visible ? "opacity-70" : "pointer-events-none opacity-0"
+      className={`material-control pressable fixed bottom-5 left-5 z-50 grid h-12 w-12 place-items-center rounded-full text-white/90 hover:bg-white/20 ${
+        visible ? "opacity-100" : "pointer-events-none scale-90 opacity-0"
       }`}
     >
-      <Settings size={28} />
+      <Settings size={24} strokeWidth={1.75} />
     </button>
   );
 }

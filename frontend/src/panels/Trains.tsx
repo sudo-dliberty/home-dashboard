@@ -1,103 +1,91 @@
-import { useEffect, useRef, useState } from "react";
 import { api, type TrainArrival, type TrainsResponse } from "../api";
 import { RouteBullet } from "../components/RouteBullet";
 import { StaleBadge } from "../components/StaleBadge";
 import { usePolling } from "../hooks/usePolling";
 
-// Derive the "· N / W" subtitle from the routes actually present in the
-// arrivals (we don't have the selected-routes list on this response).
-function routeSummary(data: TrainsResponse): string {
-  const routes = new Set<string>();
-  for (const a of [...data.north.arrivals, ...data.south.arrivals]) routes.add(a.route);
-  return [...routes].sort().join(" / ");
+// Arrival board: each direction lists its next few trains in arrival
+// order, one train per row — route bullet plus a big countdown.
+const MAX_ROWS = 4;
+
+function Minutes({ value }: { value: number }) {
+  // Keyed on the value so a changed countdown slides gently into place.
+  if (value < 1) {
+    return (
+      <span key="now" className="animate-settle font-semibold type-title" style={{ color: "var(--system-green)" }}>
+        Now
+      </span>
+    );
+  }
+  return (
+    <span key={value} className="inline-flex animate-settle items-baseline gap-[0.2em]">
+      <span className="font-semibold tabular-nums type-title">{value}</span>
+      <span className="font-semibold type-caption" style={{ fontSize: "0.5em", color: "var(--label-secondary)" }}>
+        min
+      </span>
+    </span>
+  );
 }
 
-function ArrivalRow({ a }: { a: TrainArrival }) {
-  const label = a.minutes < 1 ? "Now" : `${a.minutes} min`;
+function Row({ arrival, isLast }: { arrival: TrainArrival; isLast: boolean }) {
   return (
-    <li className="flex items-baseline gap-3 py-1">
-      <RouteBullet route={a.route} size="2.2em" />
-      <span className="font-semibold tabular-nums" style={{ fontSize: "2.8vh" }}>
-        {label}
-      </span>
+    <li className="flex items-center gap-[1.4vh]">
+      <RouteBullet route={arrival.route} size="3.6vh" />
+      <div
+        className={`flex min-w-0 flex-1 items-center py-[1.1vh] ${isLast ? "" : "border-b"}`}
+        style={{ borderColor: "var(--separator)", fontSize: "3.2vh" }}
+      >
+        <Minutes value={arrival.minutes} />
+      </div>
     </li>
   );
 }
 
-function Column({
-  title,
-  arrivals,
-}: {
-  title: string;
-  arrivals: TrainArrival[];
-}) {
+function Direction({ label, arrivals }: { label: string; arrivals: TrainArrival[] }) {
+  const rows = [...arrivals].sort((x, y) => x.minutes - y.minutes).slice(0, MAX_ROWS);
   return (
-    <div className="flex-1 min-w-0">
-      <div className="mb-2 text-zinc-400" style={{ fontSize: "1.6vh" }}>
-        {title}
-      </div>
-      {arrivals.length === 0 ? (
-        <div className="text-zinc-500" style={{ fontSize: "2vh" }}>
-          —
+    <section className="min-w-0 flex-1">
+      <h3
+        className="mb-[0.4vh] truncate font-semibold type-eyebrow"
+        style={{ fontSize: "1.3vh", color: "var(--label-secondary)" }}
+      >
+        {label}
+      </h3>
+      {rows.length === 0 ? (
+        <div className="py-[1vh] type-headline" style={{ fontSize: "1.8vh", color: "var(--label-tertiary)" }}>
+          No trains
         </div>
       ) : (
-        <ul className="space-y-1">
-          {arrivals.slice(0, 4).map((a, i) => (
-            <ArrivalRow key={`${a.route}-${a.arrival}-${i}`} a={a} />
+        <ul>
+          {rows.map((a, i) => (
+            <Row key={`${a.route}-${a.arrival}`} arrival={a} isLast={i === rows.length - 1} />
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
 export function Trains() {
   const { data, error, lastFetchAt } = usePolling<TrainsResponse>(api.trains, 30_000);
 
-  // Drive an MTA-style update flash whenever `fetched_at` advances.
-  // Bumping `pulseKey` remounts the overlay div so the CSS animation
-  // replays from frame 0 instead of being a no-op on its second trigger.
-  const prevFetched = useRef<string | null>(null);
-  const [pulseKey, setPulseKey] = useState(0);
-  useEffect(() => {
-    if (!data?.fetched_at) return;
-    if (prevFetched.current !== null && prevFetched.current !== data.fetched_at) {
-      setPulseKey((k) => k + 1);
-    }
-    prevFetched.current = data.fetched_at;
-  }, [data?.fetched_at]);
-
   return (
-    <div className="relative h-full px-5 py-4 flex flex-col bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-700">
-      {/* Update flash overlay. `key` change replays the animation. */}
-      <div
-        key={pulseKey}
-        className="pointer-events-none absolute inset-0 animate-flash rounded-2xl"
-        aria-hidden
-      />
-      <div className="mb-2 flex items-baseline">
-        <h2 className="font-semibold" style={{ fontSize: "2.6vh" }}>
+    <div className="material-panel flex h-full flex-col overflow-hidden px-[2.4vh] py-[2.2vh]">
+      <div className="mb-[1.4vh] flex items-center">
+        <h2 className="font-semibold type-headline" style={{ fontSize: "2.2vh" }}>
           {data?.station ?? "Trains"}
-          {data && routeSummary(data) && (
-            <span className="text-zinc-500 font-normal"> · {routeSummary(data)}</span>
-          )}
         </h2>
-        <StaleBadge
-          lastFetchAt={lastFetchAt}
-          staleAfterMs={90_000 /* 3× poll */}
-          isStaleFromServer={data?.stale}
-        />
+        <StaleBadge lastFetchAt={lastFetchAt} staleAfterMs={90_000 /* 3× poll */} isStaleFromServer={data?.stale} />
       </div>
 
       {data ? (
-        <div className="flex flex-1 gap-6">
-          <Column title={`→ ${data.north.label}`} arrivals={data.north.arrivals} />
-          <Column title={`→ ${data.south.label}`} arrivals={data.south.arrivals} />
+        <div className="flex gap-[3vh]">
+          <Direction label={data.north.label} arrivals={data.north.arrivals} />
+          <Direction label={data.south.label} arrivals={data.south.arrivals} />
         </div>
-      ) : error ? (
-        <div className="text-red-400 text-sm">Trains unavailable: {error}</div>
       ) : (
-        <div className="text-zinc-500 text-sm">Loading…</div>
+        <div className="m-auto type-headline" style={{ fontSize: "1.9vh", color: "var(--label-secondary)" }}>
+          {error ? "Trains unavailable" : "Loading…"}
+        </div>
       )}
     </div>
   );

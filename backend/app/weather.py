@@ -235,6 +235,13 @@ async def fetch_nws() -> dict[str, Any]:
     }
 
 
+def _utc_iso(t: str) -> str:
+    """Make an offset-less Open-Meteo UTC time an explicit ISO 8601 UTC time."""
+    if t.endswith("Z") or "+" in t[10:] or "-" in t[10:]:
+        return t
+    return f"{t}:00Z" if len(t) == 16 else f"{t}Z"
+
+
 async def fetch_open_meteo() -> dict[str, Any]:
     """Fetch + normalize the Open-Meteo forecast. Raises on any failure."""
     weather_cfg = config_store.get_runtime_config()["weather"]
@@ -244,7 +251,10 @@ async def fetch_open_meteo() -> dict[str, Any]:
         "current": "temperature_2m,precipitation,weather_code",
         "hourly": "temperature_2m,precipitation_probability,weather_code",
         "temperature_unit": "fahrenheit",
-        "timezone": "America/New_York",
+        # Ask for UTC so hourly times compare cleanly with "now" below and can
+        # be emitted with an explicit "Z". Open-Meteo's local-time strings
+        # carry no offset, which browsers would misread in their own zone.
+        "timezone": "GMT",
         "forecast_days": 2,
     }
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
@@ -262,13 +272,12 @@ async def fetch_open_meteo() -> dict[str, Any]:
     if not times:
         raise ValueError("Open-Meteo hourly block is empty")
 
-    # Find the first hourly index >= current time (Open-Meteo aligns to the
-    # current local hour, so the first entry is "this hour" — that is what we
-    # want for the 12h window).
-    now_iso = datetime.now(timezone.utc).isoformat()
+    # Start the 12h window at the current UTC hour. Times are UTC
+    # "YYYY-MM-DDTHH:MM" strings, so a YYYY-MM-DDTHH prefix compare is exact.
+    now_hour = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H")
     start_idx = 0
     for i, t in enumerate(times):
-        if t >= now_iso[:13]:  # compare YYYY-MM-DDTHH prefix (local vs utc loose match)
+        if t[:13] >= now_hour:
             start_idx = i
             break
 
@@ -281,7 +290,7 @@ async def fetch_open_meteo() -> dict[str, Any]:
             continue
         hourly.append(
             {
-                "time": times[i],
+                "time": _utc_iso(times[i]),
                 "temp_f": int(round(float(temp))),
                 "precip_prob": _coerce_precip(prob),
                 "condition": _wmo_condition(code),

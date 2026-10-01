@@ -75,8 +75,12 @@ def _open_meteo_response(
     base_temp: int = 55,
     base_precip: int = 50,
 ) -> dict[str, Any]:
-    start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-    times = [(start + timedelta(hours=i)).isoformat() for i in range(n)]
+    # Mirror the real API with timezone=GMT: offset-less UTC "YYYY-MM-DDTHH:MM",
+    # starting a few hours in the past (Open-Meteo returns whole days).
+    start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) - timedelta(
+        hours=3
+    )
+    times = [(start + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(n + 3)]
     return {
         "current": {
             "time": times[0],
@@ -86,9 +90,9 @@ def _open_meteo_response(
         },
         "hourly": {
             "time": times,
-            "temperature_2m": [float(base_temp + i) for i in range(n)],
-            "precipitation_probability": [base_precip + i for i in range(n)],
-            "weather_code": [2] * n,
+            "temperature_2m": [float(base_temp + i) for i in range(n + 3)],
+            "precipitation_probability": [base_precip + i for i in range(n + 3)],
+            "weather_code": [2] * (n + 3),
         },
     }
 
@@ -156,6 +160,12 @@ def test_open_meteo_fallback():
     assert body["current"]["icon"] == "wmo-2"
     assert len(body["hourly"]) == 12
     assert om.called
+
+    # Window starts at the current UTC hour, with an explicit UTC offset so
+    # browsers in any zone parse it correctly.
+    now_hour = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H")
+    assert body["hourly"][0]["time"] == f"{now_hour}:00:00Z"
+    assert all(h["time"].endswith("Z") for h in body["hourly"])
 
 
 @respx.mock

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, Search } from "lucide-react";
+import { RouteBullet } from "../components/RouteBullet";
 import {
   ApiError,
   geocodeZip,
@@ -46,27 +47,75 @@ function closeScreen() {
   window.location.hash = "";
 }
 
-// Small framed section matching the dashboard panels.
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// iOS Settings–style building blocks: a small uppercase header above an
+// inset, rounded group whose rows are divided by hairlines that start where
+// the text starts (not at the group's edge).
+function Section({
+  title,
+  footer,
+  children,
+}: {
+  title: string;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border border-zinc-700 bg-zinc-950 p-5">
-      <h2 className="mb-4 text-lg font-semibold text-zinc-100">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <section>
+      <h2 className="mb-1.5 px-4 text-[13px] type-eyebrow" style={{ color: "var(--label-secondary)" }}>
+        {title}
+      </h2>
+      <div className="overflow-hidden rounded-xl bg-[#1c1c1e] [&>*+*]:border-t [&>*+*]:border-white/10">
+        {children}
+      </div>
+      {footer && (
+        <div className="mt-1.5 px-4 text-[13px] type-caption" style={{ color: "var(--label-secondary)" }}>
+          {footer}
+        </div>
+      )}
     </section>
   );
 }
 
+// A single row: label on the left, control on the right. Wrapped in a
+// <label> so tapping anywhere on the row focuses the control.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm text-zinc-400">{label}</span>
-      {children}
+    <label className="ml-4 flex min-h-[44px] items-center gap-4 pr-4">
+      <span className="shrink-0 text-[17px]">{label}</span>
+      <div className="flex min-w-0 flex-1 justify-end">{children}</div>
     </label>
   );
 }
 
+// iOS-style switch. A real checkbox underneath keeps it accessible.
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <span className="relative inline-flex">
+      <input
+        type="checkbox"
+        role="switch"
+        className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span
+        className="h-[31px] w-[51px] rounded-full transition-colors duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--system-blue)]"
+        style={{ background: checked ? "var(--system-green)" : "rgba(120,120,128,0.32)" }}
+      />
+      <span
+        className="absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.15),0_3px_1px_rgba(0,0,0,0.06)] transition-transform duration-300"
+        style={{
+          transform: checked ? "translateX(20px)" : "translateX(0)",
+          transitionTimingFunction: "var(--ease-out)",
+        }}
+      />
+    </span>
+  );
+}
+
+// Borderless, right-aligned value field — the control blends into the row.
 const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none focus:border-zinc-500";
+  "w-full min-w-0 bg-transparent text-right text-[17px] text-[color:var(--label-secondary)] outline-none placeholder:text-[color:var(--label-tertiary)] focus:text-white";
 
 export function SettingsScreen() {
   const { settings, save } = useSettings();
@@ -235,128 +284,146 @@ export function SettingsScreen() {
   const availableRoutes = selectedStation?.routes ?? trains.routes;
 
   return (
-    <div className="h-screen w-full overflow-y-auto bg-black text-zinc-100">
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <header className="mb-6 flex items-center gap-3">
+    <div className="h-screen w-full overflow-y-auto bg-black text-white">
+      {/* Translucent nav bar; content scrolls underneath it. */}
+      <header className="material-control sticky top-0 z-20 !shadow-none">
+        <div className="mx-auto grid max-w-2xl grid-cols-3 items-center px-4 py-3">
           <button
             type="button"
             onClick={closeScreen}
             aria-label="Back to dashboard"
-            className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800"
+            className="pressable flex items-center justify-self-start text-[17px]"
+            style={{ color: "var(--system-blue)" }}
           >
-            <ArrowLeft size={18} /> Back
+            <ChevronLeft size={26} strokeWidth={2.25} className="-ml-2" />
+            Dashboard
           </button>
-          <h1 className="text-2xl font-semibold">Settings</h1>
-        </header>
+          <h1 className="justify-self-center text-[17px] font-semibold type-headline">Settings</h1>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="pressable justify-self-end text-[17px] font-semibold disabled:opacity-40"
+            style={{ color: "var(--system-blue)" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </header>
 
-        <div className="space-y-5">
+      <div className="mx-auto max-w-2xl px-4 pb-16 pt-6">
+        <h1 className="mb-6 px-1 text-[34px] font-bold type-title">Settings</h1>
+
+        {/* Save feedback: status inline, at the top where the eye already is. */}
+        {(saved || errorMsg) && (
+          <div
+            className="mb-6 flex animate-settle items-center gap-2 rounded-xl px-4 py-3 text-[15px]"
+            style={{
+              background: errorMsg ? "rgba(255,69,58,0.15)" : "rgba(48,209,88,0.15)",
+              color: errorMsg ? "var(--system-red)" : "var(--system-green)",
+            }}
+          >
+            {errorMsg ? <AlertCircle size={18} /> : <Check size={18} strokeWidth={2.5} />}
+            {errorMsg ?? "Saved"}
+          </div>
+        )}
+
+        <div className="space-y-8">
           {/* TIME */}
           <Section title="Time">
-            <Field label="Timezone">
+            <Field label="Time Zone">
               <select
-                className={inputClass}
+                className={`${inputClass} cursor-pointer appearance-none`}
+                style={{ textAlignLast: "right" }}
                 value={time.timezone}
                 onChange={(e) => setTime({ ...time, timezone: e.target.value })}
               >
                 {timezones.map((tz) => (
                   <option key={tz} value={tz}>
-                    {tz}
+                    {tz.replace(/_/g, " ")}
                   </option>
                 ))}
               </select>
             </Field>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={time.clock_24h}
-                onChange={(e) => setTime({ ...time, clock_24h: e.target.checked })}
-              />
-              <span className="text-sm text-zinc-300">Use 24-hour clock</span>
-            </label>
+            <Field label="24-Hour Time">
+              <Toggle checked={time.clock_24h} onChange={(v) => setTime({ ...time, clock_24h: v })} />
+            </Field>
           </Section>
 
           {/* WEATHER */}
-          <Section title="Weather">
-            <Field label="ZIP code (US — fills in coordinates)">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className={inputClass}
-                  placeholder="e.g. 11106"
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      lookupZip();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={lookupZip}
-                  disabled={zipLooking}
-                  className="shrink-0 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
-                >
-                  {zipLooking ? "Looking…" : "Look up"}
-                </button>
-              </div>
+          <Section
+            title="Weather"
+            footer={zipMsg ?? "Enter a US ZIP code to fill in the coordinates automatically."}
+          >
+            <Field label="ZIP Code">
+              <input
+                type="text"
+                inputMode="numeric"
+                className={inputClass}
+                placeholder="11106"
+                value={zip}
+                onChange={(e) => setZip(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    lookupZip();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={lookupZip}
+                disabled={zipLooking}
+                className="pressable ml-3 shrink-0 text-[17px] disabled:opacity-40"
+                style={{ color: "var(--system-blue)" }}
+              >
+                {zipLooking ? "Looking…" : "Look Up"}
+              </button>
             </Field>
-            {zipMsg && <div className="text-sm text-zinc-400">{zipMsg}</div>}
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Latitude (auto-filled from ZIP)">
-                <input
-                  type="number"
-                  step="any"
-                  className={inputClass}
-                  value={weather.lat}
-                  onChange={(e) =>
-                    setWeather({ ...weather, lat: parseFloat(e.target.value) })
-                  }
-                />
-              </Field>
-              <Field label="Longitude (auto-filled from ZIP)">
-                <input
-                  type="number"
-                  step="any"
-                  className={inputClass}
-                  value={weather.lon}
-                  onChange={(e) =>
-                    setWeather({ ...weather, lon: parseFloat(e.target.value) })
-                  }
-                />
-              </Field>
-            </div>
-            <Field label="Label (optional)">
+            <Field label="Latitude">
+              <input
+                type="number"
+                step="any"
+                className={inputClass}
+                value={weather.lat}
+                onChange={(e) => setWeather({ ...weather, lat: parseFloat(e.target.value) })}
+              />
+            </Field>
+            <Field label="Longitude">
+              <input
+                type="number"
+                step="any"
+                className={inputClass}
+                value={weather.lon}
+                onChange={(e) => setWeather({ ...weather, lon: parseFloat(e.target.value) })}
+              />
+            </Field>
+            <Field label="Label">
               <input
                 type="text"
                 className={inputClass}
+                placeholder="Optional"
                 value={weather.label ?? ""}
                 onChange={(e) => setWeather({ ...weather, label: e.target.value })}
               />
             </Field>
-            <Field label="User agent">
+            <Field label="User Agent">
               <input
                 type="text"
                 className={inputClass}
                 value={weather.user_agent}
-                onChange={(e) =>
-                  setWeather({ ...weather, user_agent: e.target.value })
-                }
+                onChange={(e) => setWeather({ ...weather, user_agent: e.target.value })}
               />
             </Field>
           </Section>
 
           {/* PHOTOS */}
-          <Section title="Photos">
-            <Field label="Directory (absolute path)">
+          <Section title="Photos" footer="An absolute path to a folder of images on this device.">
+            <Field label="Folder">
               <input
                 type="text"
                 className={inputClass}
-                placeholder="/absolute/path/to/pictures"
+                placeholder="/path/to/pictures"
                 value={photos.directory}
                 onChange={(e) => setPhotos({ directory: e.target.value })}
               />
@@ -365,91 +432,91 @@ export function SettingsScreen() {
 
           {/* SUBWAY */}
           <Section title="Subway">
-            <Field label="Station">
+            <label className="ml-4 flex min-h-[44px] items-center gap-2 pr-4">
+              <Search size={17} style={{ color: "var(--label-tertiary)" }} />
               <input
                 type="text"
-                className={inputClass}
-                placeholder="Search station name…"
+                className="w-full bg-transparent text-[17px] outline-none placeholder:text-[color:var(--label-tertiary)]"
+                placeholder="Search stations"
                 value={stationQuery}
                 onChange={(e) => setStationQuery(e.target.value)}
               />
-            </Field>
+              {searching && (
+                <span className="shrink-0 text-[15px]" style={{ color: "var(--label-tertiary)" }}>
+                  Searching…
+                </span>
+              )}
+            </label>
 
-            {searching && <div className="text-sm text-zinc-500">Searching…</div>}
             {results.length > 0 && (
-              <ul className="max-h-60 overflow-y-auto rounded-lg border border-zinc-700">
+              <ul className="max-h-72 overflow-y-auto [&>li+li]:border-t [&>li+li]:border-white/10">
                 {results.map((s) => (
-                  <li key={s.stop_id}>
+                  <li key={s.stop_id} className="ml-4">
                     <button
                       type="button"
                       onClick={() => pickStation(s)}
-                      className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-zinc-800"
+                      className="flex w-full items-center gap-3 py-2.5 pr-4 text-left active:bg-white/5"
                     >
-                      <span>
-                        {s.name}{" "}
-                        <span className="text-zinc-500">
-                          ({s.borough}) · {s.routes.join(" ")}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[17px]">{s.name}</span>
+                        <span className="block text-[13px]" style={{ color: "var(--label-secondary)" }}>
+                          {s.borough} · {s.stop_id}
                         </span>
                       </span>
-                      <span className="text-xs text-zinc-600">{s.stop_id}</span>
+                      <span className="flex shrink-0 gap-1">
+                        {s.routes.map((r) => (
+                          <RouteBullet key={r} route={r} size="22px" />
+                        ))}
+                      </span>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
 
-            <div className="text-sm text-zinc-300">
-              Selected:{" "}
-              <span className="font-medium text-zinc-100">{selectedStationLabel}</span>
-            </div>
-
-            <div>
-              <div className="mb-2 text-sm text-zinc-400">Routes</div>
-              {availableRoutes.length === 0 ? (
-                <div className="text-sm text-zinc-500">
-                  Pick a station to choose routes.
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-3">
-                  {availableRoutes.map((r) => (
-                    <label
-                      key={r}
-                      className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5"
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={trains.routes.includes(r)}
-                        onChange={() => toggleRoute(r)}
-                      />
-                      <span className="font-semibold">{r}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+            <div className="ml-4 flex min-h-[44px] items-center justify-between gap-4 pr-4">
+              <span className="text-[17px]">Station</span>
+              <span className="truncate text-[17px]" style={{ color: "var(--label-secondary)" }}>
+                {selectedStationLabel}
+              </span>
             </div>
           </Section>
 
-          {/* SAVE BAR */}
-          <div className="flex items-center gap-3 pb-10">
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving}
-              className="rounded-xl bg-zinc-100 px-5 py-2 font-semibold text-black hover:bg-white disabled:opacity-50"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={closeScreen}
-              className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2 hover:bg-zinc-800"
-            >
-              Cancel
-            </button>
-            {saved && <span className="text-sm text-emerald-400">Saved ✓</span>}
-            {errorMsg && <span className="text-sm text-red-400">{errorMsg}</span>}
-          </div>
+          <Section title="Lines" footer="Tap a line to show or hide it on the dashboard.">
+            <div className="flex flex-wrap gap-3 p-4">
+              {availableRoutes.length === 0 ? (
+                <span className="text-[15px]" style={{ color: "var(--label-secondary)" }}>
+                  Pick a station to choose lines.
+                </span>
+              ) : (
+                availableRoutes.map((r) => {
+                  const on = trains.routes.includes(r);
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      role="switch"
+                      aria-checked={on}
+                      aria-label={`${r} train`}
+                      onClick={() => toggleRoute(r)}
+                      className="pressable relative rounded-full"
+                      style={{ opacity: on ? 1 : 0.3, filter: on ? "none" : "grayscale(1)" }}
+                    >
+                      <RouteBullet route={r} size="44px" />
+                      {on && (
+                        <span
+                          className="absolute -bottom-0.5 -right-0.5 grid h-[18px] w-[18px] place-items-center rounded-full ring-2 ring-[#1c1c1e]"
+                          style={{ background: "var(--system-blue)" }}
+                        >
+                          <Check size={11} strokeWidth={3.5} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </Section>
         </div>
       </div>
     </div>

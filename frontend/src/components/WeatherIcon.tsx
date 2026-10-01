@@ -43,21 +43,21 @@ const ICONS: Record<IconKey, LucideIcon> = {
   wind: Wind,
 };
 
-// Tailwind-friendly color tokens per icon, so the visual matches the
-// weather "feel" without making it look like a kids' toy.
+// Apple Weather–style multicolor: warm system yellow for sun, cool system
+// cyan for precipitation, near-white for clouds and night.
 const COLORS: Record<IconKey, string> = {
-  sun: "text-amber-300",
-  moon: "text-zinc-200",
-  "cloud-sun": "text-amber-200",
-  "cloud-moon": "text-zinc-300",
-  cloud: "text-zinc-400",
-  drizzle: "text-sky-300",
-  rain: "text-sky-400",
-  snow: "text-sky-100",
-  thunder: "text-yellow-300",
-  fog: "text-zinc-300",
-  snowflake: "text-sky-200",
-  wind: "text-zinc-300",
+  sun: "text-[#ffd60a]",
+  moon: "text-white/90",
+  "cloud-sun": "text-[#ffe58a]",
+  "cloud-moon": "text-white/85",
+  cloud: "text-white/80",
+  drizzle: "text-[#64d2ff]",
+  rain: "text-[#64d2ff]",
+  snow: "text-white",
+  thunder: "text-[#ffd60a]",
+  fog: "text-white/70",
+  snowflake: "text-white",
+  wind: "text-white/80",
 };
 
 function isNight(icon: string | undefined, time?: string): boolean {
@@ -156,7 +156,7 @@ export function WeatherIcon({
   return (
     <Icon
       size={size}
-      strokeWidth={1.6}
+      strokeWidth={1.75}
       className={`${color} ${className}`}
       aria-label={condition}
     />

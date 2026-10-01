@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSettings } from "../settings/SettingsContext";
 
+// Lock Screen–style clock in the same glass card as the other panels. Date
+// above in a quieter weight, big tightly-tracked time below.
+// No blinking colon and no AM/PM — at a glance in your own hallway, morning
+// vs. evening is obvious, and a still clock is a calmer clock.
 export function Clock() {
   const { settings } = useSettings();
   const { timezone, clock_24h } = settings.time;
@@ -34,30 +38,26 @@ export function Clock() {
     [timezone],
   );
 
-  // Render the H:MM (AM/PM) with the colon as its own animated element so it
-  // can blink at 1 Hz like a classic digital clock without re-flowing the
-  // surrounding tabular-nums digits. The colon trick applies in both 12h
-  // and 24h modes (hour12:false still uses ":" as the separator).
-  const parts = timeFmt.formatToParts(now);
+  const time = timeFmt
+    .formatToParts(now)
+    .filter((p) => p.type !== "dayPeriod")
+    .map((p) => p.value)
+    .join("")
+    .trim();
 
   return (
-    <div className="flex flex-col justify-center px-5 py-2 leading-none">
+    <div className="material-panel flex flex-col items-center px-[2.4vh] pb-[1.6vh] pt-[2vh] text-center">
       <div
-        className="self-start font-light tabular-nums tracking-tight"
-        style={{ fontSize: "min(11vh, 11vw)" }}
+        className="font-semibold type-headline"
+        style={{ fontSize: "2.6vh", color: "rgba(255,255,255,0.82)" }}
       >
-        {parts.map((p, i) =>
-          p.type === "literal" && p.value === ":" ? (
-            <span key={i} className="animate-blink">
-              {p.value}
-            </span>
-          ) : (
-            <span key={i}>{p.value}</span>
-          ),
-        )}
-      </div>
-      <div className="mt-2 self-end text-zinc-300" style={{ fontSize: "min(2.4vh, 2.4vw)" }}>
         {dateFmt.format(now)}
+      </div>
+      <div
+        className="font-semibold tabular-nums type-display"
+        style={{ fontSize: "min(13vh, 8vw)", color: "rgba(255,255,255,0.96)" }}
+      >
+        {time}
       </div>
     </div>
   );
