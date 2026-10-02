@@ -20,3 +20,25 @@ def test_unimplemented_routers_wired():
         r = client.get(path)
         assert r.status_code == 200
         assert "error" in r.json() or "phase" in r.json() or isinstance(r.json(), dict)
+
+
+def test_spa_cache_headers(tmp_path):
+    # The entry HTML must never be stored (Chromium's session restore serves
+    # cached pages without revalidating, even under no-cache); hashed assets
+    # are immutable.
+    from fastapi import FastAPI
+
+    from app.main import SPAStaticFiles
+
+    (tmp_path / "index.html").write_text("<!doctype html>")
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "index-abc123.js").write_text("console.log(1)")
+    spa = FastAPI()
+    spa.mount("/", SPAStaticFiles(directory=tmp_path, html=True))
+    c = TestClient(spa)
+
+    assert c.get("/").headers["cache-control"] == "no-store"
+    assert (
+        c.get("/assets/index-abc123.js").headers["cache-control"]
+        == "public, max-age=31536000, immutable"
+    )

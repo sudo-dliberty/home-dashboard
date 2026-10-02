@@ -30,12 +30,18 @@ class SPAStaticFiles(StaticFiles):
     user-initiated hard refresh, that stale JS eventually throws an
     uncaught exception with no error boundary to catch it, which blanks the
     whole page to the black background from index.html's own inline CSS.
+
+    It's ``no-store`` rather than ``no-cache``: when Chromium restores a
+    session after an unclean exit (the kiosk restart script kills it), it
+    loads the tab like a back/forward navigation, which serves cached pages
+    *without* revalidating even under ``no-cache``. Only ``no-store`` keeps a
+    copy out of the cache entirely.
     """
 
     async def get_response(self, path: str, scope: Scope):
         response = await super().get_response(path, scope)
         if response.media_type == "text/html":
-            response.headers["Cache-Control"] = "no-cache"
+            response.headers["Cache-Control"] = "no-store"
         else:
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return response

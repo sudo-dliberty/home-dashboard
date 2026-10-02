@@ -13,6 +13,13 @@ systemctl --user stop chromium-kiosk.service 2>/dev/null || true
 pkill -f "$PROFILE" 2>/dev/null || true
 sleep 3
 
+# Don't relaunch until the backend answers (e.g. right after a deploy restarts
+# it): a failed first load leaves Chromium on an error page or a cached copy.
+for _ in $(seq 1 60); do
+  curl -sf --max-time 1 "${URL}/api/health" >/dev/null && break
+  sleep 1
+done
+
 systemd-run --user \
   --unit=chromium-kiosk \
   --setenv=WAYLAND_DISPLAY=wayland-0 \
