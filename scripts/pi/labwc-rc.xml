@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!--
+  labwc user config for the kiosk. Installed to ~/.config/labwc/rc.xml; labwc
+  runs with -m (merge config) on Raspberry Pi OS, so this only adds to the
+  system rc.xml.
+
+  Hides the mouse cursor whenever the kiosk Chromium window opens. `unclutter`
+  (see kiosk-start.sh) only works under X11; this is the Wayland equivalent.
+  The cursor is parked in the bottom-right corner first so nothing on the page
+  sits in a hover state, and it reappears as soon as a mouse moves.
+-->
+<labwc_config>
+  <windowRules>
+    <windowRule identifier="chromium*">
+      <action name="WarpCursor" to="output" x="-1" y="-1" />
+      <action name="HideCursor" />
+    </windowRule>
+  </windowRules>
+</labwc_config>

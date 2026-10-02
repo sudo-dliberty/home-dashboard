@@ -112,3 +112,105 @@ def test_serve_sets_cache_header(photo_dir: Path):
     r = client.get("/api/photos/tiny.png")
     assert r.status_code == 200
     assert r.headers.get("cache-control") == "public, max-age=3600"
+
+
+# --- Downscaling -----------------------------------------------------------
+
+from io import BytesIO  # noqa: E402
+
+from PIL import Image, ImageCms  # noqa: E402
+
+from app import photos as photos_mod  # noqa: E402
+
+
+@pytest.fixture
+def resize_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    cache = tmp_path / "photo-cache"
+    monkeypatch.setattr(photos_mod, "_RESIZE_CACHE_DIR", cache)
+    return cache
+
+
+def _jpeg(size: tuple[int, int], **save_kwargs) -> bytes:
+    buf = BytesIO()
+    Image.new("RGB", size, (200, 80, 40)).save(buf, format="JPEG", **save_kwargs)
+    return buf.getvalue()
+
+
+def test_large_photo_downscaled_to_requested_size(photo_dir: Path, resize_cache: Path):
+    (photo_dir / "big.jpg").write_bytes(_jpeg((4000, 3000)))
+
+    r = client.get("/api/photos/big.jpg?max=1280")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/jpeg"
+    with Image.open(BytesIO(r.content)) as img:
+        assert max(img.size) == 1280
+        assert img.size == (1280, 960)
+    assert len(list(resize_cache.glob("*.jpg"))) == 1
+
+    # A different size is a separate cached variant; the default is 1920.
+    r = client.get("/api/photos/big.jpg")
+    with Image.open(BytesIO(r.content)) as img:
+        assert max(img.size) == 1920
+    assert len(list(resize_cache.glob("*.jpg"))) == 2
+
+
+def test_small_photo_served_unchanged(photo_dir: Path, resize_cache: Path):
+    original = _jpeg((800, 600))
+    (photo_dir / "small.jpg").write_bytes(original)
+
+    r = client.get("/api/photos/small.jpg?max=1280")
+    assert r.content == original
+    assert not resize_cache.exists()
+
+
+def test_exif_orientation_applied(photo_dir: Path, resize_cache: Path):
+    exif = Image.Exif()
+    exif[0x0112] = 6  # rotate 90° CW on display
+    (photo_dir / "rotated.jpg").write_bytes(_jpeg((4000, 3000), exif=exif.tobytes()))
+
+    r = client.get("/api/photos/rotated.jpg?max=1024")
+    with Image.open(BytesIO(r.content)) as img:
+        assert img.size == (768, 1024)
+
+
+def test_icc_tagged_photo_converted_to_srgb(photo_dir: Path, resize_cache: Path):
+    srgb = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    (photo_dir / "tagged.jpg").write_bytes(_jpeg((3000, 2000), icc_profile=srgb))
+
+    r = client.get("/api/photos/tagged.jpg?max=640")
+    with Image.open(BytesIO(r.content)) as img:
+        assert img.mode == "RGB"
+        assert img.size == (640, 427)
+        # Output is plain sRGB: the source profile isn't carried along.
+        assert "icc_profile" not in img.info
+
+
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    [(None, 1920), (1, 64), (1000, 1024), (1280, 1280), (99_999, 3840)],
+)
+def test_requested_dim_clamped_and_rounded(requested, expected):
+    assert photos_mod._requested_dim(requested) == expected
+
+
+def test_cache_not_in_ram_backed_tmp():
+    import tempfile
+
+    assert not str(photos_mod._RESIZE_CACHE_DIR).startswith(tempfile.gettempdir())
+
+
+def test_prune_removes_oldest_beyond_cap(
+    resize_cache: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import os
+
+    resize_cache.mkdir()
+    for i in range(5):
+        f = resize_cache / f"{i}.jpg"
+        f.write_bytes(b"x" * 100)
+        os.utime(f, (1_000 + i, 1_000 + i))
+    monkeypatch.setattr(photos_mod, "_CACHE_MAX_BYTES", 250)
+
+    photos_mod._prune_cache()
+
+    assert sorted(p.name for p in resize_cache.glob("*.jpg")) == ["3.jpg", "4.jpg"]

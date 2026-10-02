@@ -60,6 +60,17 @@ sudo cp "$ROOT/scripts/pi/home-dashboard.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now home-dashboard.service
 
+echo "==> Installing labwc config (hides the cursor over the kiosk)"
+mkdir -p "$HOME/.config/labwc"
+LABWC_RC="$HOME/.config/labwc/rc.xml"
+if [ ! -f "$LABWC_RC" ] || cmp -s "$ROOT/scripts/pi/labwc-rc.xml" "$LABWC_RC"; then
+  cp "$ROOT/scripts/pi/labwc-rc.xml" "$LABWC_RC"
+  labwc --reconfigure 2>/dev/null || true
+else
+  echo "    $LABWC_RC already exists with other settings — not overwriting."
+  echo "    Merge the <windowRules> from scripts/pi/labwc-rc.xml into it by hand."
+fi
+
 echo "==> Installing LXDE autostart entry"
 mkdir -p "$HOME/.config/autostart"
 cp "$ROOT/scripts/pi/kiosk.desktop" "$HOME/.config/autostart/"

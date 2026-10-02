@@ -163,5 +163,8 @@ export const api = {
   trains: () => getJson<TrainsResponse>("/api/trains"),
   weather: () => getJson<WeatherResponse>("/api/weather"),
   photos: () => getJson<PhotosResponse>("/api/photos"),
-  photoUrl: (filename: string) => `/api/photos/${encodeURIComponent(filename)}`,
+  // `max` asks the server for a copy no larger than that many pixels on its
+  // long edge, so the browser draws it at (nearly) 1:1.
+  photoUrl: (filename: string, max?: number) =>
+    `/api/photos/${encodeURIComponent(filename)}${max ? `?max=${Math.round(max)}` : ""}`,
 };

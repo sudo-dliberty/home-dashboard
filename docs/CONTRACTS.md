@@ -98,6 +98,18 @@ fetches the union, parses, and labels the two directions from the registry.
 - Frontend `Trains.tsx` and `api.ts` consume `north`/`south` + their labels
   (no more hardcoded "Manhattan"/"Queens").
 
+## `GET /api/photos/{filename}?max=<px>`
+Streams one photo from the configured directory. Optional `max` (integer ≥ 1)
+asks for a copy whose long edge is at most that many pixels; it's clamped to
+64–3840 and rounded **up** to a multiple of 64. Without `max` the cap is 1920.
+
+- Photos already within the cap are streamed **unchanged** (original type).
+- Larger photos are returned as `image/jpeg`: EXIF orientation applied,
+  converted to **sRGB** (e.g. from Display P3), Lanczos-resampled, quality 90.
+- Resized copies are cached on disk under `$XDG_CACHE_HOME/home-dashboard/photos`
+  (default `~/.cache/…`), pruned oldest-first beyond 512 MB.
+- `400` bad filename, `404` missing, `415` unsupported extension.
+
 ## Station registry data
 `backend/app/data/stations.json` — built from MTA's published **Stations.csv**
 (columns include GTFS Stop ID, Stop Name, Borough, Daytime Routes, North/South

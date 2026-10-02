@@ -16,7 +16,9 @@ done
 
 # Disable display sleep & screensaver (xset is provided by x11-xserver-utils)
 xset -dpms s noblank s off 2>/dev/null || true
-# Hide the mouse cursor after 0.1s of idle (unclutter must be installed)
+# Hide the mouse cursor after 0.1s of idle (unclutter must be installed).
+# X11 only — under labwc/Wayland (current Raspberry Pi OS) the window rule in
+# scripts/pi/labwc-rc.xml hides the cursor instead.
 unclutter -idle 0.1 -root &
 
 exec chromium \

@@ -72,6 +72,17 @@ export function useSlideshow(): Slideshow {
 // it, leaving a black screen.
 const BACKDROP_W = 64;
 const BACKDROP_H = 36;
+// The backdrop is only ever drawn 64px wide, so fetch a tiny copy: decoding
+// a full-size photo just to throw it away is slow on the Pi.
+const BACKDROP_FETCH_PX = 256;
+
+// Long edge, in device pixels, the photo can occupy: the panel is ~2/3 of
+// the width and nearly the full height. Fetching about that size means the
+// browser barely rescales — the Pi's GPU scaling is fast but soft.
+function photoFetchPx(): number {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max((window.innerWidth * 2) / 3, window.innerHeight) * dpr;
+}
 
 function BlurredPhoto({ src, className }: { src: string; className: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -117,7 +128,7 @@ export function Backdrop({ show }: { show: Slideshow }) {
           name && (
             <BlurredPhoto
               key={name}
-              src={api.photoUrl(name)}
+              src={api.photoUrl(name, BACKDROP_FETCH_PX)}
               className={i === 1 ? "animate-fade-slow" : ""}
             />
           ),
@@ -177,7 +188,7 @@ export function Photos({ show }: { show: Slideshow }) {
           name && (
             <FittedPhoto
               key={name}
-              src={api.photoUrl(name)}
+              src={api.photoUrl(name, photoFetchPx())}
               className={i === 1 ? "animate-materialize motion-scale" : "animate-fade-out"}
             />
           ),
